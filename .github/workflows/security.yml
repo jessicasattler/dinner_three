@@ -1,0 +1,85 @@
+name: Security Scanning
+
+on:
+  push:
+    branches: [main, feature/*]
+  pull_request:
+    branches: [main]
+
+jobs:
+  sast-codeql:
+    runs-on: ubuntu-latest
+    name: CodeQL Analysis
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: 'python'
+      
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v2
+      
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+
+  sca-pip-audit:
+    runs-on: ubuntu-latest
+    name: Dependency Audit
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install pip-audit
+        run: pip install pip-audit
+      
+      - name: Run pip-audit
+        run: pip-audit --desc
+
+  secret-scanning:
+    runs-on: ubuntu-latest
+    name: Secret Scanning
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run TruffleHog
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug
+
+  sast-python:
+    runs-on: ubuntu-latest
+    name: Python Linting & Type Checking
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install flake8 black isort mypy
+      
+      - name: Format check with black
+        run: black --check .
+      
+      - name: Lint with flake8
+        run: flake8 recipes/ --max-line-length=100 --count --show-source --statistics
+      
+      - name: Import sort check
+        run: isort --check-only .
